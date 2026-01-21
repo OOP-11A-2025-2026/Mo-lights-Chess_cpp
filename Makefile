@@ -26,30 +26,46 @@ SOURCES = main.cpp \
           $(PIECES_DIR)/King.cpp
 
 # Test sources
-TEST_SOURCES = test_pgn.cpp \
-               PGNReader.cpp \
-               PGNWriter.cpp \
-               AlgebraicNotationParser.cpp \
-               ChessEngine.cpp \
-               Board.cpp \
-               Move.cpp \
-               Square.cpp \
-               Piece.cpp \
-               GameResult.cpp \
-               $(PIECES_DIR)/Pawn.cpp \
-               $(PIECES_DIR)/Rook.cpp \
-               $(PIECES_DIR)/Knight.cpp \
-               $(PIECES_DIR)/Bishop.cpp \
-               $(PIECES_DIR)/Queen.cpp \
-               $(PIECES_DIR)/King.cpp
+TEST_CHESS_SOURCES = test_chess.cpp \
+                     ChessEngine.cpp \
+                     Board.cpp \
+                     Move.cpp \
+                     Square.cpp \
+                     Piece.cpp \
+                     GameResult.cpp \
+                     $(PIECES_DIR)/Pawn.cpp \
+                     $(PIECES_DIR)/Rook.cpp \
+                     $(PIECES_DIR)/Knight.cpp \
+                     $(PIECES_DIR)/Bishop.cpp \
+                     $(PIECES_DIR)/Queen.cpp \
+                     $(PIECES_DIR)/King.cpp
+
+TEST_PGN_SOURCES = test_pgn.cpp \
+                   PGNReader.cpp \
+                   PGNWriter.cpp \
+                   AlgebraicNotationParser.cpp \
+                   ChessEngine.cpp \
+                   Board.cpp \
+                   Move.cpp \
+                   Square.cpp \
+                   Piece.cpp \
+                   GameResult.cpp \
+                   $(PIECES_DIR)/Pawn.cpp \
+                   $(PIECES_DIR)/Rook.cpp \
+                   $(PIECES_DIR)/Knight.cpp \
+                   $(PIECES_DIR)/Bishop.cpp \
+                   $(PIECES_DIR)/Queen.cpp \
+                   $(PIECES_DIR)/King.cpp
 
 # Object files
 OBJECTS = $(SOURCES:.cpp=.o)
-TEST_OBJECTS = $(TEST_SOURCES:.cpp=.o)
+TEST_CHESS_OBJECTS = $(TEST_CHESS_SOURCES:.cpp=.o)
+TEST_PGN_OBJECTS = $(TEST_PGN_SOURCES:.cpp=.o)
 
 # Executable names
 TARGET = chess
-TEST_TARGET = test_pgn
+TEST_CHESS_TARGET = test_chess
+TEST_PGN_TARGET = test_pgn
 
 # Default target
 all: $(TARGET)
@@ -59,12 +75,16 @@ $(TARGET): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 	@echo "Built $(TARGET) successfully!"
 
-# Build test executable
-test: $(TEST_TARGET)
+# Build test executables
+test: $(TEST_CHESS_TARGET)
 
-$(TEST_TARGET): $(TEST_OBJECTS)
+$(TEST_CHESS_TARGET): $(TEST_CHESS_OBJECTS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
-	@echo "Built $(TEST_TARGET) successfully!"
+	@echo "Built $(TEST_CHESS_TARGET) successfully!"
+
+$(TEST_PGN_TARGET): $(TEST_PGN_OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo "Built $(TEST_PGN_TARGET) successfully!"
 
 # Compile source files to object files
 %.o: %.cpp
@@ -75,12 +95,15 @@ run: $(TARGET)
 	./$(TARGET)
 
 # Run tests
-run-test: $(TEST_TARGET)
-	./$(TEST_TARGET)
+run-test: $(TEST_CHESS_TARGET)
+	./$(TEST_CHESS_TARGET)
+
+run-test-pgn: $(TEST_PGN_TARGET)
+	./$(TEST_PGN_TARGET)
 
 # Clean build artifacts
 clean:
-	rm -f $(OBJECTS) $(TEST_OBJECTS) $(TARGET) $(TEST_TARGET)
+	rm -f $(OBJECTS) $(TEST_CHESS_OBJECTS) $(TEST_PGN_OBJECTS) $(TARGET) $(TEST_CHESS_TARGET) $(TEST_PGN_TARGET)
 	rm -f $(PIECES_DIR)/*.o
 	@echo "Cleaned build artifacts"
 
