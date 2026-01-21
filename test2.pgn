@@ -1,0 +1,9 @@
+[Event "Fool's Mate Example"]
+[Site "Test"]
+[Date "2026.01.21"]
+[Round "?"]
+[White "White"]
+[Black "Black"]
+[Result "0-1"]
+
+1. f2f3 e7e5 2. g2g4 Qd8h4 0-1
