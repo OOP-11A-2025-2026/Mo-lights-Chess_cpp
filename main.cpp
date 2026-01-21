@@ -45,6 +45,9 @@ void displayGameCommands() {
     std::cout << "• Enter move: <from> <to> (e.g., 'e2 e4') or algebraic (e.g., 'e4')" << std::endl;
     std::cout << "• 'undo' - Undo last move" << std::endl;
     std::cout << "• 'moves' - Show all legal moves" << std::endl;
+    std::cout << "• 'resign' - Resign from the game" << std::endl;
+    std::cout << "• 'draw' - Request/accept a draw" << std::endl;
+    std::cout << "• 'decline' - Decline draw offer" << std::endl;
     std::cout << "• 'save <filename>' - Save game to PGN file" << std::endl;
     std::cout << "• 'menu' - Return to main menu" << std::endl;
     std::cout << "• 'help' - Show this help message" << std::endl;
@@ -59,11 +62,28 @@ void playGame(std::shared_ptr<ChessEngine> engine) {
     displayGameCommands();
     
     while (inGame) {
+        // Check for game over conditions first
+        if (engine->getGameResult()->isGameOver()) {
+            std::cout << "\n" << engine->getGameResult()->getResultMessage() << std::endl;
+            inGame = false;
+            continue;
+        }
+        
         // Display current state
         std::cout << "\nCurrent turn: " << engine->getCurrentTurn() << std::endl;
-        engine->getBoard()->printBoard();
         
-        // Check for game over conditions
+        // Show draw offer if pending
+        if (!engine->getDrawRequestedBy().empty() && engine->getDrawRequestedBy() != engine->getCurrentTurn()) {
+            std::cout << "⚡ " << engine->getDrawRequestedBy() << " has requested a draw. Type 'draw' to accept or 'decline' to refuse." << std::endl;
+        }
+        
+        try {
+            engine->getBoard()->printBoard();
+        } catch (const std::exception& e) {
+            std::cout << "Error printing board: " << e.what() << std::endl;
+        }
+        
+        // Check for checkmate and stalemate
         if (engine->isCheckmate()) {
             std::string winner = (engine->getCurrentTurn() == "white") ? "Black" : "White";
             std::cout << "\n🏆 Checkmate! " << winner << " wins! 🏆" << std::endl;
@@ -120,6 +140,37 @@ void playGame(std::shared_ptr<ChessEngine> engine) {
                     if (++count % 6 == 0) std::cout << std::endl;
                 }
                 std::cout << std::endl;
+            }
+            else if (command == "resign") {
+                std::cout << "Are you sure you want to resign? (y/n): ";
+                std::string confirm;
+                std::getline(std::cin, confirm);
+                confirm = trim(confirm);
+                if (confirm == "y" || confirm == "Y") {
+                    engine->resign();
+                    std::cout << engine->getCurrentTurn() << " has resigned." << std::endl;
+                    inGame = false;
+                }
+            }
+            else if (command == "draw") {
+                if (engine->requestDraw()) {
+                    std::cout << "Draw agreed! The game is a draw." << std::endl;
+                    inGame = false;
+                } else {
+                    if (engine->getDrawRequestedBy() == engine->getCurrentTurn()) {
+                        std::cout << "You have already requested a draw. Wait for opponent's response." << std::endl;
+                    } else {
+                        std::cout << "Draw offer sent to opponent." << std::endl;
+                    }
+                }
+            }
+            else if (command == "decline") {
+                try {
+                    engine->declineDraw();
+                    std::cout << "Draw offer declined." << std::endl;
+                } catch (const std::exception& e) {
+                    std::cout << e.what() << std::endl;
+                }
             }
             else if (command.substr(0, 4) == "save") {
                 std::string filename = trim(input.substr(4));
