@@ -2,252 +2,301 @@
 #include "PGNReader.h"
 #include "PGNWriter.h"
 #include "AlgebraicNotationParser.h"
+#include "exceptions/ChessException.h"
 #include <iostream>
 #include <memory>
 #include <string>
 #include <sstream>
+#include <algorithm>
 
-void printMenu() {
-    std::cout << "\n========== Chess Engine Menu ==========" << std::endl;
-    std::cout << "1. Start new game" << std::endl;
-    std::cout << "2. Load game from PGN file" << std::endl;
-    std::cout << "3. Save game to PGN file" << std::endl;
-    std::cout << "4. Display current board" << std::endl;
-    std::cout << "5. Make a move" << std::endl;
-    std::cout << "6. Show move history" << std::endl;
-    std::cout << "7. Exit" << std::endl;
-    std::cout << "=======================================" << std::endl;
-    std::cout << "Enter choice: ";
+// Helper function to validate square notation
+bool isValidSquare(const std::string& square) {
+    if (square.length() != 2) return false;
+    char file = square[0];
+    char rank = square[1];
+    return (file >= 'a' && file <= 'h') && (rank >= '1' && rank <= '8');
 }
 
-int main() {
-    auto engine = std::make_shared<ChessEngine>();
-    bool running = true;
+// Helper function to trim whitespace
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos) return "";
+    size_t last = str.find_last_not_of(" \t\n\r");
+    return str.substr(first, (last - first + 1));
+}
 
-    std::cout << "Welcome to Mo-Lights Chess C++!" << std::endl;
-    std::cout << "Starting new game..." << std::endl;
-    engine->getBoard()->printBoard();
+void displayWelcome() {
+    std::cout << "\n╔════════════════════════════════════════╗" << std::endl;
+    std::cout << "║     Welcome to Mo-Lights Chess C++    ║" << std::endl;
+    std::cout << "╚════════════════════════════════════════╝" << std::endl;
+}
 
-    while (running) {
-        printMenu();
+void displayMainMenu() {
+    std::cout << "\n========== Main Menu ==========" << std::endl;
+    std::cout << "1. Start New Game" << std::endl;
+    std::cout << "2. Load Game from PGN" << std::endl;
+    std::cout << "3. Quit" << std::endl;
+    std::cout << "===============================" << std::endl;
+    std::cout << "Choose an option: ";
+}
 
-        int choice;
-        std::cin >> choice;
+void displayGameCommands() {
+    std::cout << "\n--- Game Commands ---" << std::endl;
+    std::cout << "• Enter move: <from> <to> (e.g., 'e2 e4') or algebraic (e.g., 'e4')" << std::endl;
+    std::cout << "• 'undo' - Undo last move" << std::endl;
+    std::cout << "• 'moves' - Show all legal moves" << std::endl;
+    std::cout << "• 'save <filename>' - Save game to PGN file" << std::endl;
+    std::cout << "• 'menu' - Return to main menu" << std::endl;
+    std::cout << "• 'help' - Show this help message" << std::endl;
+    std::cout << "---------------------\n" << std::endl;
+}
 
-        // Handle invalid input
-        if (std::cin.fail()) {
-            std::cin.clear(); // Clear error flags
-            std::cin.ignore(10000, '\n'); // Discard invalid input
-            std::cout << "Invalid input. Please enter a number." << std::endl;
+void playGame(std::shared_ptr<ChessEngine> engine) {
+    AlgebraicNotationParser parser(engine);
+    bool inGame = true;
+    
+    std::cout << "\nGame started!" << std::endl;
+    displayGameCommands();
+    
+    while (inGame) {
+        // Display current state
+        std::cout << "\nCurrent turn: " << engine->getCurrentTurn() << std::endl;
+        engine->getBoard()->printBoard();
+        
+        // Check for game over conditions
+        if (engine->isCheckmate()) {
+            std::string winner = (engine->getCurrentTurn() == "white") ? "Black" : "White";
+            std::cout << "\n🏆 Checkmate! " << winner << " wins! 🏆" << std::endl;
+            inGame = false;
             continue;
         }
-
-        switch (choice) {
-            case 1: {
-                // Start new game
-                engine = std::make_shared<ChessEngine>();
-                std::cout << "\nNew game started!" << std::endl;
-                engine->getBoard()->printBoard();
-                break;
+        
+        if (engine->isStalemate()) {
+            std::cout << "\n🤝 Stalemate! The game is a draw. 🤝" << std::endl;
+            inGame = false;
+            continue;
+        }
+        
+        if (engine->isInCheck(engine->getCurrentTurn())) {
+            std::cout << "⚠️  Check! ⚠️" << std::endl;
+        }
+        
+        // Get player input
+        std::cout << "\n" << engine->getCurrentTurn() << " > ";
+        std::string input;
+        std::getline(std::cin, input);
+        input = trim(input);
+        
+        if (input.empty()) continue;
+        
+        // Convert to lowercase for command matching
+        std::string command = input;
+        std::transform(command.begin(), command.end(), command.begin(), ::tolower);
+        
+        try {
+            // Handle commands
+            if (command == "help") {
+                displayGameCommands();
             }
-
-            case 2: {
-                // Load PGN
-                std::string filename;
-                std::cout << "Enter PGN filename: ";
-                std::cin >> filename;
-
-                try {
-                    engine = std::make_shared<ChessEngine>();
-                    PGNReader reader(engine);
-                    reader.readPGN(filename);
-                    std::cout << "\nSuccessfully loaded game from " << filename << std::endl;
-                    std::cout << "Loaded " << engine->getMoveLog().size() << " moves" << std::endl;
-                    engine->getBoard()->printBoard();
-                } catch (const std::exception& e) {
-                    std::cerr << "Error loading PGN: " << e.what() << std::endl;
+            else if (command == "menu") {
+                std::cout << "Returning to main menu..." << std::endl;
+                inGame = false;
+            }
+            else if (command == "undo") {
+                if (engine->getMoveLog().empty()) {
+                    std::cout << "No moves to undo!" << std::endl;
+                } else {
+                    engine->undoMove();
+                    std::cout << "Move undone." << std::endl;
                 }
-                break;
             }
-
-            case 3: {
-                // Save PGN
-                std::string filename, event, white, black, result;
-
-                std::cout << "Enter PGN filename: ";
-                std::cin >> filename;
-
-                std::cin.ignore(); // Clear newline
-
-                std::cout << "Enter event name (default: Casual Game): ";
-                std::getline(std::cin, event);
-                if (event.empty()) event = "Casual Game";
-
-                std::cout << "Enter white player name (default: White): ";
-                std::getline(std::cin, white);
-                if (white.empty()) white = "White";
-
-                std::cout << "Enter black player name (default: Black): ";
-                std::getline(std::cin, black);
-                if (black.empty()) black = "Black";
-
-                std::cout << "Enter result (1-0, 0-1, 1/2-1/2, or * for ongoing): ";
-                std::getline(std::cin, result);
-                if (result.empty()) result = "*";
-
-                try {
+            else if (command == "moves") {
+                auto legalMoves = engine->getAllLegalMoves();
+                std::cout << "\nLegal moves (" << legalMoves.size() << "):" << std::endl;
+                int count = 0;
+                for (const auto& move : legalMoves) {
+                    std::cout << move.getStartSquare()->getAlgebraicNotation() << "->"
+                              << move.getEndSquare()->getAlgebraicNotation() << "  ";
+                    if (++count % 6 == 0) std::cout << std::endl;
+                }
+                std::cout << std::endl;
+            }
+            else if (command.substr(0, 4) == "save") {
+                std::string filename = trim(input.substr(4));
+                if (filename.empty()) {
+                    std::cout << "Usage: save <filename>" << std::endl;
+                } else {
                     PGNWriter writer(engine);
-                    writer.writePGN(filename, event, "Local", white, black, result);
-                    std::cout << "\nSuccessfully saved game to " << filename << std::endl;
-                } catch (const std::exception& e) {
-                    std::cerr << "Error saving PGN: " << e.what() << std::endl;
+                    writer.writePGN(filename, "Game", "Local", "White", "Black", "*");
+                    std::cout << "Game saved to " << filename << std::endl;
                 }
-                break;
             }
-
-            case 4: {
-                // Display board
-                std::cout << "\nCurrent turn: " << engine->getCurrentTurn() << std::endl;
-                engine->getBoard()->printBoard();
-                break;
-            }
-
-            case 5: {
-                // Make a move
-                std::string moveInput;
-                std::cout << "Enter move (e.g., 'e2 e4' or algebraic like 'e4'): ";
-                std::cin.ignore(); // Clear any leftover newline
-                std::getline(std::cin, moveInput);
-                
-                std::string from, to;
-                
-                // Parse the input - support both "e2 e4" and algebraic notation like "e4"
-                std::istringstream iss(moveInput);
+            else {
+                // Try to parse as a move
+                std::istringstream iss(input);
                 std::string firstToken, secondToken;
                 iss >> firstToken >> secondToken;
                 
-                try {
-                    // Try algebraic notation first (e.g., "e4", "Nf3")
-                    if (secondToken.empty()) {
-                        AlgebraicNotationParser parser(engine);
+                Move* moveToMakePtr = nullptr;
+                bool foundMove = false;
+                
+                // Try algebraic notation first if only one token
+                if (secondToken.empty()) {
+                    try {
                         Move parsedMove = parser.parseMove(firstToken);
-                        engine->makeMove(parsedMove);
-                        
-                        std::cout << "\nMove executed: " << firstToken << std::endl;
-                        engine->getBoard()->printBoard();
-                        
-                        if (engine->isCheckmate()) {
-                            std::string loser = engine->getCurrentTurn();
-                            std::string winner = (loser == "white") ? "black" : "white";
-                            std::cout << "\nCheckmate! " << winner << " wins!" << std::endl;
-                        } else if (engine->isStalemate()) {
-                            std::cout << "\nStalemate! Game is a draw." << std::endl;
-                        } else if (engine->isInCheck(engine->getCurrentTurn())) {
-                            std::cout << "\nCheck!" << std::endl;
+                        // Now find this move in legal moves to get the proper reference
+                        auto legalMoves = engine->getAllLegalMoves();
+                        for (auto& move : legalMoves) {
+                            if (move.getStartSquare()->getRow() == parsedMove.getStartSquare()->getRow() &&
+                                move.getStartSquare()->getCol() == parsedMove.getStartSquare()->getCol() &&
+                                move.getEndSquare()->getRow() == parsedMove.getEndSquare()->getRow() &&
+                                move.getEndSquare()->getCol() == parsedMove.getEndSquare()->getCol()) {
+                                moveToMakePtr = &move;
+                                foundMove = true;
+                                break;
+                            }
                         }
-                        break;
+                        if (!foundMove) {
+                            std::cout << "Invalid move notation: " << firstToken << std::endl;
+                            continue;
+                        }
+                    } catch (const std::exception& e) {
+                        std::cout << "Invalid move notation: " << firstToken << std::endl;
+                        continue;
+                    }
+                } else {
+                    // Parse as coordinate notation (from to)
+                    if (!isValidSquare(firstToken) || !isValidSquare(secondToken)) {
+                        std::cout << "Invalid square notation. Use format like 'e2 e4'" << std::endl;
+                        continue;
                     }
                     
-                    // Otherwise use "from to" format
-                    from = firstToken;
-                    to = secondToken;
+                    auto fromSq = engine->getBoard()->getSquare(firstToken);
+                    auto toSq = engine->getBoard()->getSquare(secondToken);
                     
-                    auto startSq = engine->getBoard()->getSquare(from);
-                    auto endSq = engine->getBoard()->getSquare(to);
-
-                    if (!startSq->hasPiece()) {
-                        std::cout << "No piece at " << from << std::endl;
-                        break;
+                    if (!fromSq->hasPiece()) {
+                        std::cout << "No piece at " << firstToken << std::endl;
+                        continue;
                     }
-
-                    // Check if the piece belongs to the current player
-                    if (startSq->getPiece()->getColor() != engine->getCurrentTurn()) {
-                        std::cout << "It's " << engine->getCurrentTurn() << "'s turn!" << std::endl;
-                        break;
-                    }
-
-                    // Create the move and check if it's legal
-                    Move proposedMove(startSq, endSq);
-                    std::vector<Move> legalMoves = engine->getAllLegalMoves();
-
-                    bool isLegal = false;
-                    Move legalMove = proposedMove;
-
-                    for (auto& legalMv : legalMoves) {
-                        if (legalMv.getStartSquare()->getRow() == startSq->getRow() &&
-                            legalMv.getStartSquare()->getCol() == startSq->getCol() &&
-                            legalMv.getEndSquare()->getRow() == endSq->getRow() &&
-                            legalMv.getEndSquare()->getCol() == endSq->getCol()) {
-                            isLegal = true;
-                            legalMove = legalMv;
+                    
+                    // Find matching legal move
+                    auto legalMoves = engine->getAllLegalMoves();
+                    for (auto& legalMove : legalMoves) {
+                        if (legalMove.getStartSquare()->getAlgebraicNotation() == firstToken &&
+                            legalMove.getEndSquare()->getAlgebraicNotation() == secondToken) {
+                            moveToMakePtr = &legalMove;
+                            foundMove = true;
                             break;
                         }
                     }
-
-                    if (!isLegal) {
-                        std::cout << "Illegal move! That move is not allowed." << std::endl;
-                        break;
-                    }
-
-                    engine->makeMove(legalMove);
-
-                    std::cout << "\nMove executed: " << from << " to " << to << std::endl;
-                    engine->getBoard()->printBoard();
-
-                    if (engine->isCheckmate()) {
-                        std::string loser = engine->getCurrentTurn();
-                        std::string winner = (loser == "white") ? "black" : "white";
-                        std::cout << "\nCheckmate! " << winner << " wins!" << std::endl;
-                    } else if (engine->isStalemate()) {
-                        std::cout << "\nStalemate! Game is a draw." << std::endl;
-                    } else if (engine->isInCheck(engine->getCurrentTurn())) {
-                        std::cout << "\nCheck!" << std::endl;
-                    }
-
-                } catch (const std::exception& e) {
-                    std::cerr << "Error making move: " << e.what() << std::endl;
-                }
-                break;
-            }
-
-            case 6: {
-                // Show move history
-                std::cout << "\nMove History:" << std::endl;
-                auto moveLog = engine->getMoveLog();
-
-                if (moveLog.empty()) {
-                    std::cout << "No moves yet." << std::endl;
-                } else {
-                    for (size_t i = 0; i < moveLog.size(); ++i) {
-                        if (i % 2 == 0) {
-                            std::cout << (i/2 + 1) << ". ";
-                        }
-                        std::cout << moveLog[i].toString();
-                        if (i % 2 == 0) {
-                            std::cout << " ";
-                        } else {
-                            std::cout << std::endl;
-                        }
-                    }
-                    if (moveLog.size() % 2 == 1) {
-                        std::cout << std::endl;
+                    
+                    if (!foundMove) {
+                        std::cout << "Illegal move: " << firstToken << " to " << secondToken << std::endl;
+                        continue;
                     }
                 }
-                break;
+                
+                if (foundMove && moveToMakePtr != nullptr) {
+                    // Make a copy of the move to execute
+                    Move moveToExecute = *moveToMakePtr;
+                    
+                    // Handle pawn promotion
+                    if (moveToExecute.getIsPawnPromotionMove() && moveToExecute.getPawnPromotionPiece() == nullptr) {
+                        std::cout << "Promote pawn to (Q/R/B/N): ";
+                        std::string promoChoice;
+                        std::getline(std::cin, promoChoice);
+                        promoChoice = trim(promoChoice);
+                        std::transform(promoChoice.begin(), promoChoice.end(), promoChoice.begin(), ::toupper);
+                        
+                        std::string color = moveToExecute.getPieceMoved()->getColor();
+                        if (promoChoice == "Q") moveToExecute.setPawnPromotionPiece(std::make_shared<Queen>(color));
+                        else if (promoChoice == "R") moveToExecute.setPawnPromotionPiece(std::make_shared<Rook>(color));
+                        else if (promoChoice == "B") moveToExecute.setPawnPromotionPiece(std::make_shared<Bishop>(color));
+                        else if (promoChoice == "N") moveToExecute.setPawnPromotionPiece(std::make_shared<Knight>(color));
+                        else moveToExecute.setPawnPromotionPiece(std::make_shared<Queen>(color)); // Default to Queen
+                    }
+                    
+                    engine->makeMove(moveToExecute);
+                    std::cout << "Move executed." << std::endl;
+                }
             }
-
-            case 7: {
-                // Exit
-                std::cout << "Thanks for playing Mo-Lights Chess!" << std::endl;
-                running = false;
-                break;
-            }
-
-            default:
-                std::cout << "Invalid choice. Please try again." << std::endl;
-                break;
+            
+        } catch (const std::exception& e) {
+            std::cout << "Error: " << e.what() << std::endl;
         }
     }
+    
+    // After game ends, ask to save
+    std::cout << "\nWould you like to save this game? (y/n): ";
+    std::string saveChoice;
+    std::getline(std::cin, saveChoice);
+    if (saveChoice == "y" || saveChoice == "Y") {
+        std::cout << "Enter filename: ";
+        std::string filename;
+        std::getline(std::cin, filename);
+        filename = trim(filename);
+        if (!filename.empty()) {
+            try {
+                PGNWriter writer(engine);
+                std::string result = "*";
+                if (engine->isCheckmate()) {
+                    result = (engine->getCurrentTurn() == "white") ? "0-1" : "1-0";
+                } else if (engine->isStalemate()) {
+                    result = "1/2-1/2";
+                }
+                writer.writePGN(filename, "Game", "Local", "White", "Black", result);
+                std::cout << "Game saved to " << filename << std::endl;
+            } catch (const std::exception& e) {
+                std::cout << "Failed to save: " << e.what() << std::endl;
+            }
+        }
+    }
+}
 
+int main() {
+    displayWelcome();
+    
+    bool running = true;
+    
+    while (running) {
+        displayMainMenu();
+        
+        std::string choice;
+        std::getline(std::cin, choice);
+        choice = trim(choice);
+        
+        if (choice == "1") {
+            // Start new game
+            auto engine = std::make_shared<ChessEngine>();
+            playGame(engine);
+        }
+        else if (choice == "2") {
+            // Load game from PGN
+            std::cout << "Enter PGN filename: ";
+            std::string filename;
+            std::getline(std::cin, filename);
+            filename = trim(filename);
+            
+            if (!filename.empty()) {
+                try {
+                    auto engine = std::make_shared<ChessEngine>();
+                    PGNReader reader(engine);
+                    reader.readPGN(filename);
+                    std::cout << "Game loaded successfully! (" << engine->getMoveLog().size() << " moves)" << std::endl;
+                    playGame(engine);
+                } catch (const std::exception& e) {
+                    std::cout << "Failed to load game: " << e.what() << std::endl;
+                }
+            }
+        }
+        else if (choice == "3") {
+            std::cout << "\nThanks for playing Mo-Lights Chess! Goodbye! 👋" << std::endl;
+            running = false;
+        }
+        else {
+            std::cout << "Invalid option. Please choose 1, 2, or 3." << std::endl;
+        }
+    }
+    
     return 0;
 }
