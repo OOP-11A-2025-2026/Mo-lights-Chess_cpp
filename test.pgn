@@ -1,0 +1,9 @@
+[Event "Scholar's Mate Example"]
+[Site "Test"]
+[Date "2026.01.21"]
+[Round "?"]
+[White "White"]
+[Black "Black"]
+[Result "1-0"]
+
+1. e4 e5 2. Bf1c4 Nb8c6 3. Qd1h5 Ng8f6 4. Qh5xf7 1-0
