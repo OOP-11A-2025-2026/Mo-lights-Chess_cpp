@@ -1,4 +1,5 @@
 #include "ChessEngine.h"
+#include <iostream>
 
 using namespace std;
 
@@ -59,16 +60,32 @@ void ChessEngine::makeMove(Move& move)
     shared_ptr<Piece> pieceMoved = move.getPieceMoved();
     shared_ptr<Square> start = move.getStartSquare();
     shared_ptr<Square> end = move.getEndSquare();
-    end->setPiece(pieceMoved);
-    start->removePiece();
-    pieceMoved->setMoved(true);
+    
+    if(move.getIsPawnPromotionMove())
+    {
+        // For pawn promotion, place the promotion piece directly
+        shared_ptr<Piece> promotionPiece = move.getPawnPromotionPiece();
+        
+        if(promotionPiece == nullptr)
+        {
+            throw invalid_argument("Pawn promotion piece must be set before calling makeMove");
+        }
+        
+        end->setPiece(promotionPiece);
+        start->removePiece();
+        promotionPiece->setMoved(true);
+    }
+    else
+    {
+        // Normal move
+        end->setPiece(pieceMoved);
+        start->removePiece();
+        pieceMoved->setMoved(true);
+    }
+    
     if(move.getIsEnpassantMove()) // en passant move
     {
         move.getEnPassantCapturingSquare()->removePiece();
-    }
-    if(move.getIsPawnPromotionMove())
-    {
-        end->setPiece(move.getPawnPromotionPiece());
     }
     // Handle castling - move the rook as well
     if(move.getIsKingSideCastle()) {
@@ -418,25 +435,36 @@ void ChessEngine::getPawnMoves(const shared_ptr<Square> startSquare, vector<Move
         }
         if(moveAdded) // pawn promotion
         {
-            Move& lastAddedMove = possibleMoves.back();
+            Move lastAddedMove = possibleMoves.back(); // Make a copy instead of reference
             int moveRow = lastAddedMove.getEndSquare()->getRow();
             if(moveRow == 0 || moveRow == 7)
             {
                 string color = lastAddedMove.getPieceMoved()->getColor();
                 
-                lastAddedMove.setPawnPromotion();
-                lastAddedMove.setPawnPromotionPiece(make_shared<Queen>(color));
+                // Remove the move we just added since we'll replace it with 4 promotion options
+                possibleMoves.pop_back();
+                
+                // Create the four promotion moves
+                // NOTE: We set promotion pieces to nullptr initially
+                // They will be created fresh when the move is actually made
+                Move pawnToQueen = lastAddedMove;
+                pawnToQueen.setPawnPromotion();
+                pawnToQueen.setPawnPromotionPiece(nullptr); // Will be set later
+                possibleMoves.push_back(pawnToQueen);
 
                 Move pawnToRook = lastAddedMove; 
-                pawnToRook.setPawnPromotionPiece(make_shared<Rook>(color));
+                pawnToRook.setPawnPromotion();
+                pawnToRook.setPawnPromotionPiece(nullptr);
                 possibleMoves.push_back(pawnToRook);
 
                 Move pawnToBishop = lastAddedMove;
-                pawnToBishop.setPawnPromotionPiece(make_shared<Bishop>(color));
+                pawnToBishop.setPawnPromotion();
+                pawnToBishop.setPawnPromotionPiece(nullptr);
                 possibleMoves.push_back(pawnToBishop);
 
                 Move pawnToKnight = lastAddedMove;
-                pawnToKnight.setPawnPromotionPiece(make_shared<Knight>(color));
+                pawnToKnight.setPawnPromotion();
+                pawnToKnight.setPawnPromotionPiece(nullptr);
                 possibleMoves.push_back(pawnToKnight);
             }
         }
@@ -698,11 +726,32 @@ void ChessEngine::makeMoveTesting(Move move)
     shared_ptr<Piece> pieceMoved = move.getPieceMoved();
     shared_ptr<Square> start = move.getStartSquare();
     shared_ptr<Square> end = move.getEndSquare();
-    end->setPiece(pieceMoved);
-    start->removePiece();
+    
+    // Store the original moved status of the piece that's actually moving
     bool hadMoved = pieceMoved->hasMoved();
-    pieceMoved->setMoved(true);
     move.setHadPieceBeenMoved(hadMoved);
+    
+    if(move.getIsPawnPromotionMove()) 
+    {
+        // For pawn promotion testing, just promote to queen for simplicity
+        // The actual promotion piece will be set when the move is really made
+        shared_ptr<Piece> promotionPiece = move.getPawnPromotionPiece();
+        if(promotionPiece == nullptr)
+        {
+            // Create a temporary queen for testing purposes
+            promotionPiece = make_shared<Queen>(pieceMoved->getColor());
+        }
+        end->setPiece(promotionPiece);
+        start->removePiece();
+        promotionPiece->setMoved(true);
+    }
+    else
+    {
+        // Normal move
+        end->setPiece(pieceMoved);
+        start->removePiece();
+        pieceMoved->setMoved(true);
+    }
 
     if(move.getIsEnpassantMove()) 
     {
@@ -711,10 +760,6 @@ void ChessEngine::makeMoveTesting(Move move)
         {
             captureSquare->removePiece();
         }
-    }
-    if(move.getIsPawnPromotionMove()) 
-    {
-        end->setPiece(move.getPawnPromotionPiece());
     }
     if(move.getIsKingSideCastle()) 
     {

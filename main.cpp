@@ -252,14 +252,29 @@ void playGame(std::shared_ptr<ChessEngine> engine) {
                     Move moveToExecute = *moveToMakePtr;
                     
                     // Handle pawn promotion
-                    if (moveToExecute.getIsPawnPromotionMove() && moveToExecute.getPawnPromotionPiece() == nullptr) {
-                        std::cout << "Promote pawn to (Q/R/B/N): ";
-                        std::string promoChoice;
-                        std::getline(std::cin, promoChoice);
-                        promoChoice = trim(promoChoice);
-                        std::transform(promoChoice.begin(), promoChoice.end(), promoChoice.begin(), ::toupper);
-                        
+                    if (moveToExecute.getIsPawnPromotionMove()) {
                         std::string color = moveToExecute.getPieceMoved()->getColor();
+                        std::string promoChoice;
+                        
+                        // Check if promotion piece is specified in the input (algebraic notation)
+                        if (secondToken.empty() && input.find('=') != std::string::npos) {
+                            // Extract promotion piece from algebraic notation (e.g., "e8=Q")
+                            size_t eqPos = input.find('=');
+                            if (eqPos + 1 < input.length()) {
+                                promoChoice = input[eqPos + 1];
+                                std::transform(promoChoice.begin(), promoChoice.end(), promoChoice.begin(), ::toupper);
+                            }
+                        }
+                        
+                        // If not specified or invalid, prompt the user
+                        if (promoChoice.empty() || (promoChoice != "Q" && promoChoice != "R" && promoChoice != "B" && promoChoice != "N")) {
+                            std::cout << "Promote pawn to (Q/R/B/N): ";
+                            std::getline(std::cin, promoChoice);
+                            promoChoice = trim(promoChoice);
+                            std::transform(promoChoice.begin(), promoChoice.end(), promoChoice.begin(), ::toupper);
+                        }
+                        
+                        // Create the promotion piece
                         if (promoChoice == "Q") moveToExecute.setPawnPromotionPiece(std::make_shared<Queen>(color));
                         else if (promoChoice == "R") moveToExecute.setPawnPromotionPiece(std::make_shared<Rook>(color));
                         else if (promoChoice == "B") moveToExecute.setPawnPromotionPiece(std::make_shared<Bishop>(color));

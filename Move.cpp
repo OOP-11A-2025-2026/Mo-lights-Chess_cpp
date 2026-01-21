@@ -161,6 +161,12 @@ string Move::toString() const
         return "0-0-0";
 
     string result = "";
+    
+    if(this->pieceMoved == nullptr)
+    {
+        return "Invalid move";
+    }
+    
     string pieceLetter = this->pieceMoved->getPieceLetter();
 
     if(pieceLetter.empty()) 

@@ -132,8 +132,12 @@ bool AlgebraicNotationParser::moveMatchesSAN(const Move& move, const std::string
                 // Check for promotion
                 if (move.getIsPawnPromotionMove()) {
                     if (san.find('=') != std::string::npos) {
-                        char promoPiece = san[san.find('=') + 1];
-                        return promoPiece == move.getPawnPromotionPiece()->getPieceLetter()[0];
+                        // Extract the promotion piece letter from the notation
+                        char promoPieceLetter = san[san.find('=') + 1];
+                        // Match based on the notation letter (Q, R, B, N)
+                        // Since promotion pieces are now null, we just verify it's a valid promotion
+                        return (promoPieceLetter == 'Q' || promoPieceLetter == 'R' || 
+                                promoPieceLetter == 'B' || promoPieceLetter == 'N');
                     }
                     return false;
                 }
@@ -146,8 +150,11 @@ bool AlgebraicNotationParser::moveMatchesSAN(const Move& move, const std::string
                 // Check for promotion
                 if (move.getIsPawnPromotionMove()) {
                     if (san.find('=') != std::string::npos) {
-                        char promoPiece = san[san.find('=') + 1];
-                        return promoPiece == move.getPawnPromotionPiece()->getPieceLetter()[0];
+                        // Extract the promotion piece letter from the notation
+                        char promoPieceLetter = san[san.find('=') + 1];
+                        // Match based on the notation letter (Q, R, B, N)
+                        return (promoPieceLetter == 'Q' || promoPieceLetter == 'R' || 
+                                promoPieceLetter == 'B' || promoPieceLetter == 'N');
                     }
                     return false;
                 }
